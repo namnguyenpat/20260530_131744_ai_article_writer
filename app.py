@@ -1,0 +1,201 @@
+from __future__ import annotations
+
+import os
+from typing import Final
+
+import streamlit as st
+from openai import OpenAI
+
+
+MODEL: Final[str] = "deepseek-v4-flash"
+MAX_INPUT_WORDS: Final[int] = 200
+
+
+def get_api_key() -> str | None:
+    secret_key = st.secrets.get("DEEPSEEK_API_KEY")
+    if secret_key:
+        return str(secret_key)
+    return os.getenv("DEEPSEEK_API_KEY")
+
+
+def build_prompt(idea: str, max_words: int) -> str:
+    return f"""
+Ban la mot content writer chuyen nghiep.
+
+Nhiem vu:
+- Viet mot bai hoan chinh bang tieng Viet.
+- Dau vao chi gom y tuong va gioi han so chu.
+- Bai viet phai ro rang, de doc, co mo bai, than bai va ket bai.
+- Tong do dai khong vuot qua {max_words} chu.
+- Khong chen giai thich ve quy trinh.
+- Tra ve duy nhat noi dung bai viet dang Markdown.
+
+Idea:
+{idea.strip()}
+""".strip()
+
+
+def generate_article(idea: str, max_words: int, api_key: str) -> str:
+    client = OpenAI(api_key=api_key, base_url="https://api.deepseek.com")
+    response = client.chat.completions.create(
+        model=MODEL,
+        messages=[
+            {
+                "role": "system",
+                "content": "You write polished Vietnamese articles and follow output constraints exactly.",
+            },
+            {
+                "role": "user",
+                "content": build_prompt(idea=idea, max_words=max_words),
+            },
+        ],
+        temperature=0.7,
+    )
+    return response.choices[0].message.content or ""
+
+
+st.set_page_config(
+    page_title="AI Article Writer",
+    page_icon="",
+    layout="centered",
+)
+
+st.markdown(
+    """
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;500;700&display=swap');
+
+    :root {
+        --paper: #f6f1e7;
+        --ink: #1f1a17;
+        --muted: #6f675e;
+        --line: #d9d0c2;
+        --accent: #8a2e24;
+    }
+
+    .stApp {
+        background:
+            linear-gradient(180deg, rgba(255,255,255,0.58), rgba(255,255,255,0.58)),
+            radial-gradient(circle at top left, #fbf7ef, var(--paper));
+        color: var(--ink);
+    }
+
+    .block-container {
+        max-width: 760px;
+        padding-top: 3rem;
+        padding-bottom: 4rem;
+    }
+
+    h1, h2, h3, p, label, div, span, textarea, input, button {
+        font-family: "Noto Serif JP", serif !important;
+    }
+
+    .jp-shell {
+        border-top: 1px solid var(--line);
+        border-bottom: 1px solid var(--line);
+        padding: 1.4rem 0 1.2rem 0;
+        margin-bottom: 2rem;
+    }
+
+    .jp-title {
+        font-size: 2rem;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+        color: var(--ink);
+        margin: 0;
+    }
+
+    .jp-subtitle {
+        color: var(--muted);
+        font-size: 0.98rem;
+        margin-top: 0.35rem;
+    }
+
+    .stTextArea textarea,
+    .stNumberInput input {
+        background: rgba(255, 255, 255, 0.55) !important;
+        border: 1px solid var(--line) !important;
+        border-radius: 0 !important;
+        color: var(--ink) !important;
+    }
+
+    .stTextArea textarea:focus,
+    .stNumberInput input:focus {
+        border-color: var(--accent) !important;
+        box-shadow: none !important;
+    }
+
+    .stButton > button,
+    .stDownloadButton > button {
+        background: var(--ink) !important;
+        color: #f8f3ea !important;
+        border: 1px solid var(--ink) !important;
+        border-radius: 0 !important;
+        min-height: 2.9rem;
+    }
+
+    .stButton > button:hover,
+    .stDownloadButton > button:hover {
+        background: var(--accent) !important;
+        border-color: var(--accent) !important;
+    }
+
+    .stMarkdown h2 {
+        border-top: 1px solid var(--line);
+        padding-top: 1rem;
+        margin-top: 2rem;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+st.markdown(
+    """
+    <section class="jp-shell">
+        <p class="jp-title">AI Article Writer</p>
+        <p class="jp-subtitle">Mot giao dien toi gian de bien idea thanh bai viet hoan chinh.</p>
+    </section>
+    """,
+    unsafe_allow_html=True,
+)
+
+idea = st.text_area(
+    "Idea",
+    placeholder="Vi du: Viet bai gioi thieu loi ich cua email marketing cho doanh nghiep nho",
+    height=180,
+    max_chars=3000,
+)
+max_words = st.number_input(
+    "Max words",
+    min_value=100,
+    max_value=5000,
+    value=800,
+    step=100,
+)
+
+api_key = get_api_key()
+
+if st.button("Generate article", type="primary", use_container_width=True):
+    if not api_key:
+        st.error("Chua tim thay DEEPSEEK_API_KEY trong secrets hoac environment.")
+    elif not idea.strip():
+        st.error("Hay nhap idea truoc khi generate.")
+    elif len(idea.split()) > MAX_INPUT_WORDS:
+        st.error(f"Idea qua dai. Hay rut gon duoi {MAX_INPUT_WORDS} tu.")
+    else:
+        with st.spinner("Dang tao bai viet..."):
+            try:
+                article = generate_article(idea=idea, max_words=int(max_words), api_key=api_key)
+            except Exception as exc:  # noqa: BLE001
+                st.exception(exc)
+            else:
+                st.subheader("Bai viet")
+                st.markdown(article)
+                st.download_button(
+                    "Download markdown",
+                    data=article,
+                    file_name="article.md",
+                    mime="text/markdown",
+                    use_container_width=True,
+                )
