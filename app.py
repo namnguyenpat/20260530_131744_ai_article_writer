@@ -5,6 +5,7 @@ from typing import Final
 
 import streamlit as st
 from openai import OpenAI
+from streamlit.errors import StreamlitSecretNotFoundError
 
 
 MODEL: Final[str] = "deepseek-v4-flash"
@@ -12,7 +13,10 @@ MAX_INPUT_WORDS: Final[int] = 200
 
 
 def get_api_key() -> str | None:
-    secret_key = st.secrets.get("DEEPSEEK_API_KEY")
+    try:
+        secret_key = st.secrets["DEEPSEEK_API_KEY"]
+    except (StreamlitSecretNotFoundError, KeyError, FileNotFoundError):
+        secret_key = None
     if secret_key:
         return str(secret_key)
     return os.getenv("DEEPSEEK_API_KEY")
@@ -20,15 +24,15 @@ def get_api_key() -> str | None:
 
 def build_prompt(idea: str, max_words: int) -> str:
     return f"""
-Ban la mot content writer chuyen nghiep.
+You are a professional content writer.
 
-Nhiem vu:
-- Viet mot bai hoan chinh bang tieng Viet.
-- Dau vao chi gom y tuong va gioi han so chu.
-- Bai viet phai ro rang, de doc, co mo bai, than bai va ket bai.
-- Tong do dai khong vuot qua {max_words} chu.
-- Khong chen giai thich ve quy trinh.
-- Tra ve duy nhat noi dung bai viet dang Markdown.
+Task:
+- Write a complete article in English.
+- The only inputs are the idea and the maximum word count.
+- The article must be clear, readable, and include an introduction, body, and conclusion.
+- The total length must not exceed {max_words} words.
+- Do not include process explanations.
+- Return only the final article content in Markdown format.
 
 Idea:
 {idea.strip()}
@@ -154,7 +158,7 @@ st.markdown(
     """
     <section class="jp-shell">
         <p class="jp-title">AI Article Writer</p>
-        <p class="jp-subtitle">Mot giao dien toi gian de bien idea thanh bai viet hoan chinh.</p>
+        <p class="jp-subtitle">A minimal interface for turning an idea into a complete article.</p>
     </section>
     """,
     unsafe_allow_html=True,
@@ -162,7 +166,7 @@ st.markdown(
 
 idea = st.text_area(
     "Idea",
-    placeholder="Vi du: Viet bai gioi thieu loi ich cua email marketing cho doanh nghiep nho",
+    placeholder="Example: Write an article about the benefits of email marketing for small businesses",
     height=180,
     max_chars=3000,
 )
@@ -178,22 +182,22 @@ api_key = get_api_key()
 
 if st.button("Generate article", type="primary", use_container_width=True):
     if not api_key:
-        st.error("Chua tim thay DEEPSEEK_API_KEY trong secrets hoac environment.")
+        st.error("DEEPSEEK_API_KEY was not found in Streamlit secrets or environment variables.")
     elif not idea.strip():
-        st.error("Hay nhap idea truoc khi generate.")
+        st.error("Enter an idea before generating.")
     elif len(idea.split()) > MAX_INPUT_WORDS:
-        st.error(f"Idea qua dai. Hay rut gon duoi {MAX_INPUT_WORDS} tu.")
+        st.error(f"The idea is too long. Keep it under {MAX_INPUT_WORDS} words.")
     else:
-        with st.spinner("Dang tao bai viet..."):
+        with st.spinner("Generating article..."):
             try:
                 article = generate_article(idea=idea, max_words=int(max_words), api_key=api_key)
             except Exception as exc:  # noqa: BLE001
                 st.exception(exc)
             else:
-                st.subheader("Bai viet")
+                st.subheader("Article")
                 st.markdown(article)
                 st.download_button(
-                    "Download markdown",
+                    "Download Markdown",
                     data=article,
                     file_name="article.md",
                     mime="text/markdown",
