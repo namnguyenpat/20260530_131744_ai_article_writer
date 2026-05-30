@@ -182,7 +182,7 @@ max_words = st.number_input(
     "Max words",
     min_value=100,
     max_value=5000,
-    value=800,
+    value=300,
     step=100,
 )
 
