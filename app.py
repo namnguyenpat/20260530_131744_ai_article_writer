@@ -8,18 +8,26 @@ from openai import OpenAI
 from streamlit.errors import StreamlitSecretNotFoundError
 
 
-MODEL: Final[str] = "deepseek-v4-flash"
+DEFAULT_MODEL: Final[str] = "deepseek-v4-flash"
 MAX_INPUT_WORDS: Final[int] = 200
 
 
-def get_api_key() -> str | None:
+def get_secret(name: str) -> str | None:
     try:
-        secret_key = st.secrets["DEEPSEEK_API_KEY"]
+        secret_value = st.secrets[name]
     except (StreamlitSecretNotFoundError, KeyError, FileNotFoundError):
-        secret_key = None
-    if secret_key:
-        return str(secret_key)
-    return os.getenv("DEEPSEEK_API_KEY")
+        secret_value = None
+    if secret_value:
+        return str(secret_value)
+    return os.getenv(name)
+
+
+def get_api_key() -> str | None:
+    return get_secret("DEEPSEEK_API_KEY")
+
+
+def get_model() -> str:
+    return get_secret("DEEPSEEK_MODEL") or DEFAULT_MODEL
 
 
 def build_prompt(idea: str, max_words: int) -> str:
@@ -39,10 +47,10 @@ Idea:
 """.strip()
 
 
-def generate_article(idea: str, max_words: int, api_key: str) -> str:
+def generate_article(idea: str, max_words: int, api_key: str, model: str) -> str:
     client = OpenAI(api_key=api_key, base_url="https://api.deepseek.com")
     response = client.chat.completions.create(
-        model=MODEL,
+        model=model,
         messages=[
             {
                 "role": "system",
@@ -179,6 +187,9 @@ max_words = st.number_input(
 )
 
 api_key = get_api_key()
+model = get_model()
+
+st.caption(f"Model: `{model}`")
 
 if st.button("Generate article", type="primary", use_container_width=True):
     if not api_key:
@@ -190,7 +201,12 @@ if st.button("Generate article", type="primary", use_container_width=True):
     else:
         with st.spinner("Generating article..."):
             try:
-                article = generate_article(idea=idea, max_words=int(max_words), api_key=api_key)
+                article = generate_article(
+                    idea=idea,
+                    max_words=int(max_words),
+                    api_key=api_key,
+                    model=model,
+                )
             except Exception as exc:  # noqa: BLE001
                 st.exception(exc)
             else:

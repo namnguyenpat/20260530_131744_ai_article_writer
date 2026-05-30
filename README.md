@@ -32,6 +32,7 @@ Tao file `.streamlit/secrets.toml`:
 
 ```toml
 DEEPSEEK_API_KEY = "your_api_key_here"
+DEEPSEEK_MODEL = "deepseek-v4-flash"
 ```
 
 Co the dung bien moi truong `DEEPSEEK_API_KEY` neu khong muon dung secrets.
@@ -45,9 +46,10 @@ Co the dung bien moi truong `DEEPSEEK_API_KEY` neu khong muon dung secrets.
 
 ```toml
 DEEPSEEK_API_KEY = "your_api_key_here"
+DEEPSEEK_MODEL = "deepseek-v4-flash"
 ```
 
 ## Luu y
 
 - App nay yeu cau dung API key DeepSeek hop le.
-- Ten model da duoc cap nhat theo docs DeepSeek: `deepseek-v4-flash`.
+- Model mac dinh la `deepseek-v4-flash`, nhung co the doi bang `DEEPSEEK_MODEL` trong secrets.
